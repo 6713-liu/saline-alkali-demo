@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>滨海盐碱地地块种植决策仿真</title>
+<style>
+:root{
+  --green-900:#1f4d29; --green-700:#2f6b3a; --green-600:#3b7d47; --green-500:#4a8f57;
+  --line:#dbe6d6; --bg:#f2f7ef; --ink:#2b3a2d; --sub:#5c6b5e; --warn:#8a5a10;
+}
+*{box-sizing:border-box;}
+body{
+  margin:0; padding:28px 18px 48px; background:var(--bg); color:var(--ink);
+  font-family:"Microsoft YaHei","PingFang SC",sans-serif;
+}
+.wrap{max-width:1040px;margin:0 auto;}
+h1{margin:0 0 6px;font-size:26px;color:var(--green-900);letter-spacing:1px;}
+.sub{margin:0 0 18px;color:var(--sub);font-size:14px;}
+.note{
+  background:#eef5e9;border:1px solid var(--line);border-left:4px solid var(--green-600);
+  border-radius:10px;padding:12px 16px;font-size:13px;color:#41513f;margin-bottom:18px;line-height:1.7;
+}
+.card{
+  background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 24px;
+  box-shadow:0 2px 10px rgba(43,74,45,.06);margin-bottom:18px;
+}
+.card h2{
+  margin:0 0 16px;font-size:17px;color:var(--green-900);
+  display:flex;align-items:center;gap:8px;
+}
+.card h2::before{content:"";width:4px;height:16px;background:var(--green-600);border-radius:2px;}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:22px;}
+.field label{display:block;font-weight:700;font-size:14px;margin-bottom:7px;}
+.field .unit{font-weight:400;color:var(--sub);font-size:12px;}
+.field input{
+  width:100%;padding:11px 13px;font-size:17px;color:var(--green-900);
+  border:1px solid #c6d8c0;border-radius:10px;background:#fbfdf9;outline:none;
+  transition:border-color .15s,box-shadow .15s;
+}
+.field input:focus{border-color:var(--green-500);box-shadow:0 0 0 3px rgba(74,143,87,.16);background:#fff;}
+.hint{margin-top:6px;font-size:12px;color:var(--sub);}
+.btns{margin-top:18px;display:flex;gap:12px;flex-wrap:wrap;}
+button{
+  font-size:15px;padding:11px 26px;border:none;border-radius:10px;cursor:pointer;
+  background:var(--green-600);color:#fff;transition:background .15s,transform .05s;
+}
+button:hover{background:var(--green-700);}
+button:active{transform:translateY(1px);}
+button.ghost{background:#fff;color:var(--green-700);border:1px solid #b6cfad;}
+button.ghost:hover{background:#f2f8ef;}
+
+/* ---------- 分级标尺 ---------- */
+.scale{margin-bottom:26px;}
+.scale:last-child{margin-bottom:4px;}
+.scale-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:32px;flex-wrap:wrap;gap:6px;}
+.scale-name{font-weight:700;font-size:14px;}
+.scale-cur{font-size:12.5px;color:var(--sub);background:#f6faf3;border:1px solid var(--line);border-radius:18px;padding:4px 12px;}
+.scale-cur b{color:var(--green-900);font-size:15px;}
+.plot{position:relative;height:34px;margin:0 0 58px;}
+.zone{
+  position:absolute;top:0;height:100%;border-top:1px solid rgba(0,0,0,.06);border-bottom:1px solid rgba(0,0,0,.06);
+}
+.zone:first-child{left:0;border-left:1px solid rgba(0,0,0,.08);border-top-left-radius:8px;border-bottom-left-radius:8px;}
+.zone.right{border-right:1px solid rgba(0,0,0,.08);border-top-right-radius:8px;border-bottom-right-radius:8px;}
+.zone.on{outline:2px solid var(--green-900);outline-offset:-2px;z-index:2;}
+.zcap{
+  position:absolute;top:-19px;transform:translateX(-50%);font-size:11px;color:var(--sub);white-space:nowrap;
+}
+.zcap.on{color:var(--green-900);font-weight:700;}
+.tick{position:absolute;top:100%;width:1px;height:8px;background:#7f8f7c;}
+.ticknum{position:absolute;top:44px;transform:translateX(-50%);font-size:11px;color:#68766a;white-space:nowrap;}
+.ticknum.mid{color:#9aa89b;}
+.range{
+  position:absolute;top:66px;transform:translateX(-50%);font-size:10px;color:#78877a;white-space:nowrap;
+}
+.cursor{position:absolute;top:-9px;height:55px;transform:translateX(-50%);transition:left .25s ease;z-index:5;}
+.cursor .stem{width:3px;height:100%;background:var(--green-900);border-radius:2px;margin:0 auto;}
+.cursor .flag{
+  position:absolute;bottom:100%;left:50%;transform:translateX(-50%);margin-bottom:1px;
+  background:var(--green-900);color:#fff;font-size:12px;padding:2px 8px;border-radius:6px;white-space:nowrap;
+}
+.cursor.edge-r .flag{transform:translateX(-92%);}
+.cursor.edge-l .flag{transform:translateX(-8%);}
+.cursor .tip-tri{
+  position:absolute;top:100%;left:50%;transform:translateX(-50%);
+  width:0;height:0;border:5px solid transparent;border-top-color:var(--green-900);
+}
+.cursor.off{background:transparent;}
+.cursor.off .stem{background:#b0413e;}
+.cursor.off .flag{background:#b0413e;}
+.cursor.off .tip-tri{border-top-color:#b0413e;}
+.legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:0;}
+.chip{
+  display:flex;align-items:center;gap:6px;font-size:12px;color:var(--sub);
+  border:1px solid var(--line);border-radius:20px;padding:4px 11px;background:#fbfdf9;
+}
+.chip i{width:12px;height:12px;border-radius:3px;display:block;}
+.chip.on{border-color:var(--green-700);color:var(--green-900);font-weight:700;background:#eef5e9;}
+
+/* ---------- 结果 ---------- */
+.err{
+  background:#fdf1ef;border:1px solid #f0c7c0;color:#8f3a2f;border-radius:10px;padding:14px 16px;font-size:14px;
+}
+.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px;}
+@media (min-width:900px){.summary{grid-template-columns:repeat(5,1fr);}}
+.sum{
+  background:#f6faf3;border:1px solid var(--line);border-radius:10px;padding:10px 13px;min-width:0;
+}
+.sum span{display:block;font-size:12px;color:var(--sub);margin-bottom:4px;}
+.sum b{font-size:15px;color:var(--green-900);}
+.lv-0{color:#2f6b3a;}.lv-1{color:#2f6b3a;}.lv-2{color:#4a7a34;}.lv-3{color:#8a5a10;}.lv-4{color:#a8500f;}.lv-5{color:#b03a34;}
+.block{border-top:1px dashed #cfddc8;padding:14px 0;}
+.block:first-of-type{border-top:none;padding-top:0;}
+.block h3{
+  margin:0 0 8px;font-size:14px;color:var(--green-700);display:flex;align-items:center;gap:7px;
+}
+.block h3 .no{
+  width:18px;height:18px;border-radius:5px;background:var(--green-600);color:#fff;
+  font-size:11px;display:inline-flex;align-items:center;justify-content:center;
+}
+.block ul{margin:0;padding-left:18px;}
+.block li{margin:3px 0;line-height:1.75;font-size:14px;}
+.block .kv{display:grid;grid-template-columns:88px 1fr;gap:2px 10px;font-size:14px;line-height:1.75;}
+.block .kv dt{color:var(--sub);}
+.block .kv dd{margin:0;}
+.block.ban h3{color:#a8500f;}
+.block.ban h3 .no{background:#c2701a;}
+.block.ban li{color:#7c4a12;}
+.src{font-size:13px;color:var(--sub);line-height:1.75;}
+.foot{font-size:12px;color:#8a978b;text-align:center;margin-top:6px;}
+@media (max-width:720px){.row{grid-template-columns:1fr;}.zcap{display:none;}}
+@media (max-width:620px){.ticknum.mid{display:none;}.range{font-size:9px;}}
+@media (max-width:430px){.range{display:none;}.plot{margin-bottom:40px;}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>滨海盐碱地地块种植决策仿真</h1>
+  <p class="sub">输入地块实测的土壤 pH 与含盐量，自动完成盐碱分级判定与品种选配推演</p>
+  <div class="note">
+    决策规则取自《DB13/T 6260—2026 滨海中重度盐碱地改良适种技术规程》与《土壤质量 农业利用盐碱地土壤分级分类》国标；
+    推演同时校验 pH 与含盐量两条阈值，取<b>更保守的一档</b>作为综合等级。结果仅供种植决策参考。
+  </div>
+
+  <div class="card">
+    <h2>地块实测数据</h2>
+    <div class="row">
+      <div class="field">
+        <label>土壤 pH 值 <span class="unit">（刻度范围 6.0 ~ 9.8）</span></label>
+        <input type="number" id="ph" step="0.1" placeholder="例如 8.6">
+        <div class="hint">取 0~10cm 耕层混合样、水土比 2.5:1 电位法测定</div>
+      </div>
+      <div class="field">
+        <label>土壤含盐量 <span class="unit">（全盐量，单位 %）</span></label>
+        <input type="number" id="salt" step="0.01" placeholder="例如 0.35">
+        <div class="hint">耕层 0~20cm 平均全盐量，电位法/重量法测定</div>
+      </div>
+    </div>
+    <div class="btns">
+      <button onclick="calc()">生成推演结果</button>
+      <button class="ghost" onclick="resetAll()">重置</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>盐碱分级标尺</h2>
+    <div class="scale">
+      <div class="scale-head">
+        <span class="scale-name">土壤含盐量分级标尺（0 ~ 1.00 %）</span>
+        <span class="scale-cur" id="saltRead">当前：未输入</span>
+      </div>
+      <div class="plot" id="saltPlot"></div>
+      <div class="legend" id="saltLegend"></div>
+    </div>
+    <div class="scale">
+      <div class="scale-head">
+        <span class="scale-name">土壤 pH 分级标尺（6.0 ~ 9.8）</span>
+        <span class="scale-cur" id="phRead">当前：未输入</span>
+      </div>
+      <div class="plot" id="phPlot"></div>
+      <div class="legend" id="phLegend"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>推演结果</h2>
+    <div id="result"></div>
+  </div>
+  <p class="foot">滨海盐碱地地块种植决策仿真 · 数据分级阈值参照 DB13/T 6260—2026</p>
+</div>
+
+<script>
+/* ============ 标尺配置：分段、刻度、分级名称 ============ */
+const SCALES = {
+  salt:{
+    min:0, max:1.00, fmt:v=>v.toFixed(2), unit:'%', stepLabel:v=>v.toFixed(2),
+    zones:[
+      {lv:1, from:0,    to:0.10, name:'非盐化',   cap:'非盐化',    color:'#e6f2df', tick:'0.10'},
+      {lv:2, from:0.10, to:0.25, name:'轻度盐化', cap:'轻度盐化',  color:'#cbe6bd', tick:'0.25'},
+      {lv:3, from:0.25, to:0.40, name:'中度盐化', cap:'中度盐化',  color:'#f0dfa5', tick:'0.40'},
+      {lv:4, from:0.40, to:0.60, name:'重度盐化', cap:'重度盐化',  color:'#e8bd85', tick:'0.60'},
+      {lv:5, from:0.60, to:1.00, name:'盐土/碱斑', cap:'盐土·碱斑', color:'#dd9184', tick:'1.00'}
+    ],
+    ticks:[0, 0.10, 0.25, 0.40, 0.60, 0.80, 1.00]
+  },
+  ph:{
+    min:6.0, max:9.8, fmt:v=>v.toFixed(1), unit:'', stepLabel:v=>v.toFixed(1),
+    zones:[
+      {lv:0, from:6.0, to:6.5, name:'偏酸性',       cap:'偏酸',    color:'#cfe3f0', tick:'6.5'},
+      {lv:1, from:6.5, to:7.5, name:'中性',         cap:'中性',    color:'#dcedd4', tick:'7.5'},
+      {lv:2, from:7.5, to:8.0, name:'微碱性',       cap:'微碱',    color:'#c6e2bb', tick:'8.0'},
+      {lv:3, from:8.0, to:8.8, name:'中盐碱',       cap:'中盐碱',  color:'#f0dfa5', tick:'8.8'},
+      {lv:4, from:8.8, to:9.2, name:'中高盐碱',     cap:'中高',    color:'#e8bd85', tick:'9.2'},
+      {lv:5, from:9.2, to:9.5, name:'重度碱化',     cap:'重度',    color:'#dd9184', tick:'9.5'},
+      {lv:5, from:9.5, to:9.8, name:'强碱化',       cap:'强碱',    color:'#c9605c', tick:'9.8'}
+    ],
+    ticks:[6.0, 6.5, 7.5, 8.0, 8.8, 9.2, 9.5, 9.8]
+  }
+};
+const RISK = ['低','低','较低','中等','较高','高'];
+/* ============ 分级推演模板（0~5 档） ============ */
+const GRADE = [
+  { /* 0 偏酸性 */
+    type:'偏酸性土壤',
+    rec:['蓝莓、茶树、马铃薯等喜酸作物','常规粮食作物（玉米、小麦、大豆）可正常种植'],
+    measure:['按酸化程度适量施用石灰调酸，分次浅施','增施腐熟有机肥提高缓冲性','控制生理酸性肥料（硫酸铵）连年使用'],
+    yield:['维持当地常规大田水平，无盐碱减产'],
+    risk:['pH 过低易缺磷、缺镁，活性铝毒害根系','雨季板结、通透性差'],
+    monitor:['每 2~3 年检测一次大量养分与 pH','出现黄叶补测中微量元素'],
+    ban:{crops:['苜蓿、甜菜等喜钙耐碱作物'],reason:'酸碱度不匹配，易诱发缺素'},
+    tip:{in:'常规农资投入，调酸物料少量追加',out:'特色经济作物收益高于普通粮油',act:'pH＜5.5 时分年集中施石灰，配合秸秆还田'},
+    src:['土壤质量 农业利用盐碱地土壤分级分类国标','GB/T 33604 土壤检测有效锰的测定','DB13/T 6260—2026（对照参考）']
+  },
+  { /* 1 中性常规农田 */
+    type:'中性常规农田',
+    rec:['普通玉米、小麦、大豆、花生、谷子'],
+    measure:['常规水肥管理，按需施肥','雨季疏通墒沟、排水防涝','提倡秸秆还田与测土配方施肥'],
+    yield:['玉米 550~650 kg/亩','大豆 180~230 kg/亩','花生 280~330 kg/亩'],
+    risk:'主要风险为病虫害与涝害，无盐碱胁迫',
+    monitor:['每 2~3 年检测一次土壤养分，无需频繁测盐'],
+    ban:{crops:['无盐碱限制作物'],reason:'土壤条件良好，按季节与水肥条件选品种即可'},
+    tip:{in:'本地常规种植投入，技术成熟',out:'稳定粮油主栽地块',act:'暴雨后及时排涝，预防根腐病'},
+    src:['土壤质量 农业利用盐碱地土壤分级分类国标','NY/T 1118 土壤全盐量的测定']
+  },
+  { /* 2 微碱性 / 轻度盐化 */
+    type:'微碱性农田，轻度盐碱',
+    rec:['旱碱麦、普通小麦、玉米、大豆','燕麦、耐盐碱苜蓿'],
+    measure:['禁止大水漫灌，防止底层盐分上返','播种前浅翻 15~20 cm，秸秆覆盖抑盐','与豆科、燕麦轮作养地'],
+    yield:['旱碱麦 320~370 kg/亩','燕麦 220~270 kg/亩','苜蓿鲜草 2800~3100 kg/亩'],
+    risk:['春旱年份表层轻微返盐，低洼点位更易积盐','苗期弱苗、缺苗断垄'],
+    monitor:['每年 3 月春播前、9 月雨季结束后各测一次盐分与 pH'],
+    ban:{crops:['蓝莓、茶树等喜酸作物'],reason:'pH 偏高，生长受抑制、易缺铁黄化'},
+    tip:{in:'接近普通耕地，以秸秆覆盖和轮作为主',out:'旱碱麦稳定性最好，苜蓿可对接饲草订单',act:'苗期发黄喷施腐殖酸叶面肥，少量多次追肥'},
+    src:['DB13/T 6260—2026 滨海中重度盐碱地改良适种技术规程','环渤海耐盐碱冬油菜品种筛选','黄骅南大港旱碱谷试验文献']
+  },
+  { /* 3 中度盐化 / 滨海中盐碱 */
+    type:'滨海中盐碱地块',
+    rec:['旱碱麦、耐盐碱苜蓿、冬油菜','高粱（耐盐品种）'],
+    measure:['深耕 25~30 cm，建立立体控盐耕作层','咸水灌溉安排在傍晚，单次灌水量控制在 40 m³/亩','地表秸秆覆盖切断毛管抑制返盐','不连年单种旱碱麦，与绿肥轮作'],
+    yield:['旱碱麦 240~290 kg/亩','苜蓿一年两茬鲜草 1900~2300 kg/亩','冬油菜籽 85~105 kg/亩'],
+    risk:['3 月下旬至 4 月返盐高峰，易烧芽缺苗','咸水灌溉间隔过短会抬升土层盐分'],
+    monitor:['一年 3 次：春播前、4 月返盐期、雨季过后'],
+    ban:{crops:['普通玉米、普通大豆、花生'],reason:'此类作物耐盐阈值＜0.20 %，盐分超标，出苗率低、减产严重'},
+    tip:{in:'需腐熟有机肥与覆盖物料，投入高于普通耕地',out:'旱碱麦风险最低，苜蓿配套牛羊养殖，冬油菜收籽后秸秆还田改土',act:'出苗稀少时小水淋盐，及时加盖秸秆阻断盐分上返'},
+    src:['DB13/T 6260—2026 滨海中重度盐碱地改良适种技术规程','沧州 A 级绿色苜蓿生产技术规程','土壤质量 农业利用盐碱地土壤分级分类国标']
+  },
+  { /* 4 重度盐化 / 中高盐碱 */
+    type:'滨海中高盐碱地块',
+    rec:['耐盐碱苜蓿、冬油菜、菊芋'],
+    measure:['起垄覆膜栽培，垄上种植、沟内集雨淋盐','每亩增施腐熟有机肥 2 吨','不建议连年单种旱碱麦，易持续积盐','灌溉定额小水多次，杜绝漫灌'],
+    yield:['苜蓿鲜草 1600~2000 kg/亩','冬油菜籽 70~90 kg/亩','菊芋 2100~2600 kg/亩'],
+    risk:['大风晴天地表快速返盐','连续咸水灌溉累积底层盐分','保苗率低，产量年际波动大'],
+    monitor:['每年 4 月返盐期、雨季结束后必测，年度跟踪盐分变化趋势'],
+    ban:{crops:['常规旱碱麦、普通高粱、谷子、普通玉米'],reason:'常规旱碱麦耐盐上限约 0.25 %，盐分胁迫下稳产难度大，谷子高粱空壳多'},
+    tip:{in:'改良物料投入偏高，不宜大面积连片种植',out:'苜蓿、菊芋适合饲料订单，冬油菜优先作绿肥改土',act:'幼苗萎蔫时用淡水小定额淋洗表层盐分，严禁大水漫灌'},
+    src:['DB13/T 6260—2026 滨海中重度盐碱地改良适种技术规程','运东近滨海地区燕麦盐分积累与改良潜力分析','滨海中重度盐碱地土壤立体控盐降盐技术规程']
+  },
+  { /* 5 盐土/碱斑 / 重度碱化 */
+    type:'滨海重度盐碱地（重度碱化）',
+    rec:['菊芋、碱蓬、耐盐芦苇（以生态改良为先）'],
+    measure:['以改良为主、种植为辅','秸秆深埋 + 表层覆盖，依靠雨季雨水自然淋盐','前两年不追求产量，重点降盐脱碱','禁止大面积开垦与自行灌水改良'],
+    yield:['菊芋 1600~2200 kg/亩','芦苇、碱蓬按生态植被计，不追求粮食产出'],
+    risk:['春旱时表盐急剧升高，极易烧苗','雨季积水形成盐涝叠加','土壤板结、透水透气性差，根系难下扎'],
+    monitor:['一年 4 次：早春、返盐高峰、雨季中期、秋末；pH＞9.5 时每半年复测'],
+    ban:{crops:['旱碱麦、苜蓿、冬油菜、燕麦、常规粮食蔬菜'],reason:'作物耐盐上限多在 0.25~0.30 %，盐分与碱性双重胁迫超耐受极限，保苗差、难有稳定收益'},
+    tip:{in:'投入集中在改良物料，短期难见收益',out:'菊芋/碱蓬作先锋作物；降盐至 0.25 % 以内再试种粮油',act:'地表发白立即覆盖秸秆等待雨水淋盐，切勿盲目补种或大水冲盐'},
+    src:['DB13/T 6260—2026 滨海中重度盐碱地改良适种技术规程','咸水灌溉改良滨海盐碱地适用性研究进展','土壤质量 农业利用盐碱地土壤分级分类国标']
+  }
+];
+/* ============ 标尺绘制 ============ */
+function pct(s, v){ return Math.min(100, Math.max(0, (v - s.min) / (s.max - s.min) * 100)); }
+function zoneOf(s, v){
+  for(const z of s.zones){ if(v >= z.from && v < z.to) return z; }
+  return v >= s.max ? s.zones[s.zones.length-1] : s.zones[0];
+}
+function buildScale(key){
+  const s = SCALES[key], plot = document.getElementById(key + 'Plot'), leg = document.getElementById(key + 'Legend');
+  let h = '';
+  s.zones.forEach((z,i)=>{
+    const left = pct(s, z.from);
+    const width = pct(s, z.to) - left;
+    const last = i === s.zones.length - 1 ? ' right' : '';
+    h += `<div class="zone${last}" data-k="${key}" data-i="${i}" style="left:${left}%;width:${width}%;background:${z.color}"></div>`;
+    h += `<span class="zcap" data-k="${key}" data-i="${i}" style="left:${left + width/2}%">${z.cap}</span>`;
+    h += `<span class="range" style="left:${left + width/2}%">${s.fmt(z.from)}~${s.fmt(z.to)}</span>`;
+  });
+  s.ticks.forEach(t=>{
+    const isEdge = t === s.min || s.zones.some(z=>z.to === t);
+    const cls = isEdge ? '' : ' mid';
+    h += `<span class="tick${cls}" style="left:${pct(s,t)}%"></span>`;
+    h += `<span class="ticknum${cls}" style="left:${pct(s,t)}%">${s.stepLabel(t)}</span>`;
+  });
+  h += `<div class="cursor" data-cur="${key}" style="left:0"><span class="flag">未输入</span><span class="stem"></span><span class="tip-tri"></span></div>`;
+  plot.innerHTML = h;
+  leg.innerHTML = s.zones.map((z,i)=>`<span class="chip" data-k="${key}" data-i="${i}"><i style="background:${z.color}"></i>${z.name} ${s.fmt(z.from)}~${s.fmt(z.to)}</span>`).join('');
+}
+function updateScale(key, raw){
+  const s = SCALES[key], box = document.getElementById(key + 'Plot');
+  const c = box.querySelector(`.cursor[data-cur="${key}"]`);
+  const flag = c.querySelector('.flag');
+  const readout = document.getElementById(key + 'Read');
+  const v = parseFloat(raw);
+  box.querySelectorAll('.zone.on, .zcap.on').forEach(e=>e.classList.remove('on'));
+  document.querySelectorAll(`.chip[data-k="${key}"]`).forEach(e=>e.classList.remove('on'));
+  if(isNaN(v)){
+    c.style.left = '0%'; c.classList.remove('off'); flag.style.display = 'none';
+    readout.textContent = '当前：未输入'; return;
+  }
+  flag.style.display = '';
+  const inRange = v >= s.min && v <= s.max;
+  const pv = pct(s, v);
+  c.style.left = pv + '%';
+  c.classList.toggle('off', !inRange);
+  c.classList.toggle('edge-r', pv > 86);
+  c.classList.toggle('edge-l', pv < 8);
+  const label = s.fmt(v) + (key === 'salt' ? ' %' : '');
+  flag.textContent = inRange ? label + ' · ' + zoneOf(s, v).name : label + ' 超出刻度';
+  readout.innerHTML = '当前：<b>' + label + '</b>　判级：' +
+    (inRange ? zoneOf(s, v).name : (v < s.min ? '低于刻度下限，按左端定位' : '高于刻度上限，按右端定位'));
+  if(inRange){
+    const i = s.zones.indexOf(zoneOf(s, v));
+    box.querySelector(`.zone[data-i="${i}"]`).classList.add('on');
+    box.querySelector(`.zcap[data-i="${i}"]`).classList.add('on');
+    document.querySelector(`.chip[data-k="${key}"][data-i="${i}"]`).classList.add('on');
+  }
+}
+
+/* ============ 决策逻辑：pH 与含盐量双阈值，取保守档 ============ */
+function classify(ph, salt){
+  const zP = zoneOf(SCALES.ph, ph), zS = zoneOf(SCALES.salt, salt);
+  let lv, note;
+  if(zP.lv === 0){
+    lv = 0;
+    note = 'pH 判定为' + zP.name + (ph < SCALES.ph.min ? '（低于刻度下限 ' + SCALES.ph.min.toFixed(1) + '）' : '') +
+      '，重点防控酸化；' + (zS.lv > 1 ? '含盐量偏高，建议复核取样深度与测定方法' : '无盐碱胁迫');
+  } else {
+    lv = Math.max(zP.lv, zS.lv);
+    if(zS.lv > zP.lv)      note = '含盐量已达' + zS.name + '，高于 pH 对应的' + zP.name + '，按更保守的第 ' + lv + ' 档推演';
+    else if(zP.lv > zS.lv) note = 'pH 判定为' + zP.name + '，含盐量仅' + zS.name + '，限制因素以碱性胁迫为主';
+    else                   note = 'pH 与含盐量同判为第 ' + lv + ' 档，指标一致';
+  }
+  return {lv, note};
+}
+const LI = arr => `<ul>${[].concat(arr).map(x=>`<li>${x}</li>`).join('')}</ul>`;
+const BLK = (no, title, body, cls) => `<div class="block ${cls||''}"><h3><span class="no">${no}</span>${title}</h3>${body}</div>`;
+
+function calc(){
+  const phRaw = document.getElementById('ph').value, saltRaw = document.getElementById('salt').value;
+  const ph = parseFloat(phRaw), salt = parseFloat(saltRaw);
+  updateScale('salt', saltRaw); updateScale('ph', phRaw);
+  const out = document.getElementById('result');
+  if(isNaN(ph) || isNaN(salt)){
+    out.innerHTML = '<div class="err">请输入合法的 pH 值和含盐量数值后再推演。</div>'; return;
+  }
+  if(ph > 14 || ph < 0 || salt < 0){
+    out.innerHTML = '<div class="err">数值超出可测定范围（pH 0~14、含盐量 ≥ 0），请核对输入。</div>'; return;
+  }
+  const g = classify(ph, salt), d = GRADE[g.lv];
+  let html = `<div class="summary">
+    <div class="sum"><span>土壤类型</span><b>${d.type}</b></div>
+    <div class="sum"><span>综合等级</span><b>第 ${g.lv} 档 · ${['偏酸','中性','轻度','中度','重度','盐土/碱斑'][g.lv]}</b></div>
+    <div class="sum"><span>pH 判级</span><b>${zoneOf(SCALES.ph, ph).name}</b></div>
+    <div class="sum"><span>盐分判级</span><b>${zoneOf(SCALES.salt, salt).name}</b></div>
+    <div class="sum"><span>种植风险</span><b class="lv-${g.lv}">${RISK[g.lv]}</b></div>
+  </div>`;
+  html += BLK(1, '地块诊断', `<div class="kv">
+      <dt>土壤 pH</dt><dd>${ph.toFixed(1)}（${zoneOf(SCALES.ph, ph).name}）</dd>
+      <dt>含盐量</dt><dd>${salt.toFixed(2)} %（${zoneOf(SCALES.salt, salt).name}）</dd>
+      <dt>土壤类型</dt><dd>${d.type}</dd>
+      <dt>判级说明</dt><dd>${g.note || 'pH 与含盐量档位一致，正常推演'}</dd>
+    </div>`);
+  html += BLK(2, '推荐种植', LI(d.rec));
+  html += BLK(3, '配套措施', LI(d.measure));
+  html += BLK(4, '预估产量', LI(d.yield));
+  html += BLK(5, '种植风险', LI(d.risk));
+  html += BLK(6, '田间监测建议', LI(d.monitor));
+  html += BLK(7, '不适合种植', LI([...d.ban.crops.map(c=>'✕ ' + c), '原因：' + d.ban.reason]), 'ban');
+  html += BLK(8, '农户参考提示', `<div class="kv">
+      <dt>投入</dt><dd>${d.tip.in}</dd>
+      <dt>收益方向</dt><dd>${d.tip.out}</dd>
+      <dt>应急方案</dt><dd>${d.tip.act}</dd>
+    </div>`);
+  html += BLK(9, '依据资料', `<div class="src">${d.src.map(s=>'· ' + s).join('<br>')}</div>`);
+  out.innerHTML = html;
+}
+function resetAll(){
+  document.getElementById('ph').value = '';
+  document.getElementById('salt').value = '';
+  document.getElementById('result').innerHTML = '';
+  updateScale('salt', ''); updateScale('ph', '');
+}
+buildScale('salt'); buildScale('ph');
+['ph','salt'].forEach(id=>document.getElementById(id).addEventListener('input', e=>{
+  const key = id === 'ph' ? 'ph' : 'salt';
+  updateScale(key, e.target.value);
+}));
+updateScale('salt', ''); updateScale('ph', '');
+</script>
+</body>
+</html>
